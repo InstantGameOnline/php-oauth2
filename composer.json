@@ -5,6 +5,11 @@
     "require": {
         "league/oauth2-client": "^2.3"
     },
+    "autoload": {
+        "psr-4": {
+            "InstantGameOnline\\OAuth2\\Client\\": "src/"
+        }
+    },
     "authors": [
         {
             "name": "InstantGame.Online",
