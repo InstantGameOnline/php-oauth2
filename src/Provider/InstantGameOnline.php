@@ -79,6 +79,11 @@ class InstantGameOnline extends AbstractProvider
         ];
     }
 
+    protected function getScopeSeparator()
+    {
+        return ' ';
+    }
+
     /**
      * Checks a provider response for errors.
      *
