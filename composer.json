@@ -1,0 +1,14 @@
+{
+    "name": "instantgameonline/oauth2",
+    "description": "InstantGame.Online Provider for OAuth 2.0 Client",
+    "type": "library",
+    "require": {
+        "league/oauth2-client": "^2.3"
+    },
+    "authors": [
+        {
+            "name": "InstantGame.Online",
+            "email": "github@instantgame.online"
+        }
+    ]
+}
