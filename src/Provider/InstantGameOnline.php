@@ -2,17 +2,21 @@
 
 namespace InstantGameOnline\OAuth2\Client\Provider;
 
+use Lcobucci\JWT\Parser;
+use League\OAuth2\Client\Grant\AbstractGrant;
 use League\OAuth2\Client\Provider\AbstractProvider;
 use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
 use League\OAuth2\Client\Provider\ResourceOwnerInterface;
 use League\OAuth2\Client\Token\AccessToken;
 use League\OAuth2\Client\Tool\BearerAuthorizationTrait;
 use Psr\Http\Message\ResponseInterface;
+use React\Promise\PromiseInterface;
 use RuntimeException;
 
 class InstantGameOnline extends AbstractProvider
 {
     use BearerAuthorizationTrait;
+    use ReactTrait;
 
     const WEB_URL = 'https://instantgame.online';
     const API_URL = 'https://api.instantgame.online/v1';
@@ -25,7 +29,43 @@ class InstantGameOnline extends AbstractProvider
         $this->webUrl = static::WEB_URL;
         $this->apiUrl = static::API_URL;
 
+        if (isset($collaborators['browser'])) {
+            $this->setBrowser($collaborators['browser']);
+        }
+
         parent::__construct($options, $collaborators);
+    }
+
+    /**
+     * Requests an access token using a specified grant and option set.
+     *
+     * @param  mixed $grant
+     * @param  array $options
+     * @return PromiseInterface
+     */
+    public function getAccessTokenReact($grant, array $options = []): PromiseInterface
+    {
+        $grant = $this->verifyGrant($grant);
+
+        $params = [
+            'client_id'     => $this->clientId,
+            'client_secret' => $this->clientSecret,
+            'redirect_uri'  => $this->redirectUri,
+        ];
+
+        $params   = $grant->prepareRequestParameters($params, $options);
+        $request  = $this->getAccessTokenRequest($params);
+
+        return $this->getBrowser()->send($request)
+            ->then(function (ResponseInterface $response) use ($grant) {
+                $parsed = $this->parseResponse($response);
+
+                $this->checkResponse($response, $parsed);
+
+                $prepared = $this->prepareAccessTokenResponse($parsed);
+
+                return $this->createAccessToken($prepared, $grant);
+            });
     }
 
     /**
@@ -84,6 +124,13 @@ class InstantGameOnline extends AbstractProvider
         return ' ';
     }
 
+    protected function getDefaultHeaders()
+    {
+        return [
+            'Accept' => 'application/json',
+        ];
+    }
+
     /**
      * Checks a provider response for errors.
      *
@@ -99,10 +146,19 @@ class InstantGameOnline extends AbstractProvider
         }
 
         throw new IdentityProviderException(
-            $response->getReasonPhrase(),
+            $data['message'],
             $response->getStatusCode(),
             $response->getBody()->getContents()
         );
+    }
+
+    protected function createAccessToken(array $response, AbstractGrant $grant)
+    {
+        $jwtToken = (new Parser())->parse($response['access_token']);
+
+        $response['scopes'] = $jwtToken->getClaim('scopes');
+
+        return new AccessToken($response);
     }
 
     /**
@@ -116,5 +172,13 @@ class InstantGameOnline extends AbstractProvider
     protected function createResourceOwner(array $response, AccessToken $token)
     {
         throw new RuntimeException('This has not been implemented');
+    }
+
+    protected function getAllowedClientOptions(array $options)
+    {
+        $allowedClientOptions = parent::getAllowedClientOptions($options);
+        $allowedClientOptions[] = 'verify';
+
+        return $allowedClientOptions;
     }
 }
